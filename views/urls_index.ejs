@@ -15,11 +15,22 @@
       crossorigin="anonymous"
     />
     <title>TinyApp</title>
-    <% include ./partials/_header.ejs %>
   </head>
   <body>
+    <header>
+      <% include ./partials/_header.ejs %>
+    </header>
+
     <main style="margin: 1em;">
       <h3>My URLs</h3>
+
+      <% if(!user) { %>
+      <p>
+        You are not logged in. Please <a href="/login">Login</a> or
+        <a href="/register">Register</a> to view the URLs.
+      </p>
+
+      <% } else{ %>
 
       <table class="table">
         <thead>
@@ -34,7 +45,7 @@
           <% for(let url in urls) { %>
           <tr>
             <td><%= url %></td>
-            <td><%= urls[url] %></td>
+            <td><%= urls[url].longURL %></td>
             <form method="GET" action="/urls/<%= url %>">
               <td>
                 <button type="submit" class="btn btn-primary">Edit</button>
@@ -49,6 +60,8 @@
           <% } %>
         </tbody>
       </table>
+
+      <% } %>
     </main>
     <!-- Bootstrap JS -->
     <script

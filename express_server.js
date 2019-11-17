@@ -3,18 +3,23 @@ const app = express();
 const PORT = 8080; // default port 8080
 const morgan = require("morgan");
 const bodyParser = require("body-parser");
-const cookieParser = require("cookie-parser");
+const cookieSession = require("cookie-session");
+const bcrypt = require("bcrypt");
 
 app.use(morgan("dev"));
-app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.set("view engine", "ejs");
-
+app.use(
+  cookieSession({
+    name: "session",
+    keys: ["key1", "key2"]
+  })
+);
 //=============== DATABASE ================//
 
 const urlDatabase = {
-  b2xVn2: "http://www.lighthouselabs.ca",
-  s9m5xK: "http://www.google.com"
+  b2xVn2: { longURL: "http://www.lighthouselabs.ca", userID: "userRandomID" },
+  s9m5xK: { longURL: "http://www.google.com", userID: "anotherID" }
 };
 
 const users = {
@@ -22,83 +27,149 @@ const users = {
     id: "userRandomID",
     email: "user@example.com",
     password: "purple-monkey-dinosaur"
+  },
+  anotherID: {
+    id: "anotherID",
+    email: "another@example.com",
+    password: "monkey-dinosaur"
   }
 };
 
 //=============== FUNCTIONS ================//
 
+// GENERATE RANDOM STRING
 const generateRandomString = function() {
   return Math.random()
     .toString(30)
     .substring(2, 8);
 };
-//const randomID = function() {};
+
+// FIND USER BY EMAIL ID
+function findUserEmail(email) {
+  for (let user in users) {
+    if (users[user].email === email) {
+      return users[user].id;
+    }
+  }
+  return "";
+}
+
+// FINDS URL LIST OF THE LOGGED IN USER
+function urlsForUser(id) {
+  let userURL = {};
+  for (let url in urlDatabase) {
+    if (urlDatabase[url].userID === id) {
+      userURL[url] = urlDatabase[url];
+    }
+  }
+  return userURL;
+}
 
 //=============== GET ================//
 
-app.get("/urls.json", (req, res) => {
-  res.json(
-    (urlDatabase = {
-      shortURL: longURL
-    })
-  );
-});
-
-// RENDERS THE HOME PAGE WITH SHORT-LONG URLS
+// RENDERS HOME PAGE WITH SHORT-LONG URLS
 app.get("/urls", (req, res) => {
+  const userID = req.session.userID;
   let templateVars = {
-    urls: urlDatabase,
-    user_id: req.cookies["user_id"],
-    user: users[req.cookies["user_id"]]
+    urls: urlsForUser(userID),
+    user_id: userID,
+    user: users[userID]
   };
   res.render("urls_index", templateVars);
 });
 
 // RENDERS REGISTRATION PAGE FOR USER
 app.get("/register", (req, res) => {
-  res.render("urls_registration");
+  const templateVars = {
+    user: null
+  };
+  res.render("urls_registration", templateVars);
 });
 
 // RENDERS LOGIN PAGE FOR USER
 app.get("/login", (req, res) => {
-  res.render("urls_login");
+  const templateVars = {
+    user: null
+  };
+  res.render("urls_login", templateVars);
 });
 
 // RENDERS NEW_URL PAGE FOR USER TO CONVERT FROM LONG URL TO SHORT
 app.get("/urls/new", (req, res) => {
-  res.render("urls_new");
+  const loggedInUser = users[req.session.userID];
+  if (!loggedInUser) {
+    res.redirect("/login");
+  } else {
+    const templateVars = {
+      user: loggedInUser
+    };
+    res.render("urls_new", templateVars);
+  }
 });
 
-// TAKES TO THE ACTUAL PAGE IN THE LINK AND DISPLAYS THE SHORTURL INSTEAD OF THE ORIGINAL URL(longURL)
+// RENDERS EDIT URL PAGE (urls_show) FOR USER TO EDIT
+app.get("/urls/:shortURL", (req, res) => {
+  const tempVars = {
+    shortURL: req.params.shortURL,
+    longURL: urlDatabase[req.params.shortURL],
+    user: users[req.session.userID]
+  };
+  console.log(tempVars);
+  res.render("urls_show", tempVars);
+});
+
+// REDIRECTS TO THE ACTUAL PAGE IN THE LINK AND DISPLAYS THE SHORTURL (instead of longURL)
 app.get("/u/:shortURL", (req, res) => {
   const longURL = urlDatabase[req.params.shortURL];
   res.redirect(longURL);
 });
 
-// app.get("/urls/:shortURL", (req, res) => {
-//   const tempVars = {
-//     shortURL: req.params.shortURL,
-//     longURL: urlDatabase[req.params.shortURL],
-//     username: req.cookies["name"]
-//   };
-//   res.render("urls_show", tempVars);
-// });
-
 //=============== POST =================//
 
-// CONVERTS LONG URL TO SHORT and redirects to /URLS
+// CONVERTS LONG URL TO SHORT for logged-in user else redirects to login
 app.post("/urls", (req, res) => {
-  longURL = req.body.longURL;
-  shortURL = generateRandomString(longURL);
-  urlDatabase[shortURL] = longURL;
-  res.cookie("user_id");
-  res.redirect("/urls", templateVars);
+  const userID = req.session.userID;
+  const user = users[userID];
+  if (!user) {
+    res.redirect("/login");
+  } else {
+    longURL = req.body.longURL;
+    shortURL = generateRandomString(longURL);
+    urlDatabase[shortURL] = { longURL: longURL, userID: userID };
+    res.redirect("/urls");
+  }
 });
 
-// DELETES THE CONVERTED URLS FROM THE LIST/DATABASE
-app.post("/urls/:shortURL/delete", function(req, res) {
-  delete urlDatabase[req.params.shortURL];
-  res.redirect("/urls");
+// DELETES THE CONVERTED URLS FROM THE USER'S URL LIST
+app.post("/urls/:shortURL/delete", (req, res) => {
+  let userLoggedIn = req.session.userID;
+  let usersURL = urlDatabase[req.params.shortURL].userID;
+  if (userLoggedIn === usersURL) {
+    let deletingURL = req.params.shortURL;
+    delete urlDatabase[deletingURL];
+    res.redirect("/urls");
+  } else {
+    res.send("Sorry, you are not a user.");
+  }
+});
+
+// EDITS THE CONVERTED URLS FROM THE USER'S URL LIST
+app.get("/u/:shortURL", (req, res) => {
+  const longURL = urlDatabase[req.params.shortURL].longURL;
+  res.redirect(longURL);
+});
+
+app.post("/urls/:shortURL", (req, res) => {
+  let userLoggedIn = req.session.userID;
+  let usersURL = urlDatabase[req.params.shortURL].userID;
+  if (userLoggedIn === usersURL) {
+    let newURL = req.body.newlongURL;
+    let shortURL = req.params.shortURL;
+    urlDatabase[shortURL].longURL = newURL;
+    res.redirect("/urls");
+  } else {
+    res.send("Sorry, you are not a user");
+  }
 });
 
 // REGISTER'S NEW USER -- ADD COOKIES -- REDIRECTS TO URL PAGE (upon submit -- checks if user already exist -- if user has input the both the fields -- else throw error)
@@ -116,7 +187,7 @@ app.post("/register", function(req, res) {
     email: email,
     password: password
   };
-  res.cookie("user_id", userRandomID);
+  req.session.userID = userRandomID;
   res.redirect("/urls");
 });
 
@@ -136,10 +207,10 @@ app.post("/login", function(req, res) {
     }
   }
   if (validUser) {
-    res.cookie("user_id", userRandomID);
+    req.session.userID = userRandomID;
     res.redirect("/urls");
   } else {
-    res.status(403).send("Try again. Email or password does not match");
+    res.redirect("/login", 403);
   }
 });
 
@@ -148,9 +219,11 @@ app.post("/logout", function(req, res) {
   let templateVars = {
     user: null
   };
-  res.clearCookie("user_id");
+  req.session.userID = null;
   res.render("urls_logout", templateVars);
 });
+
+//===========================================//
 
 // LISTENING TO PORT
 app.listen(PORT, () => {
@@ -158,16 +231,17 @@ app.listen(PORT, () => {
 });
 
 //=============== WASTE CODE =================//
-
 /*
-app.get("/", (req, res) => {
-  res.send("Hello!");
+Cookie Options
+maxAge: 24 * 60 * 60 * 1000 // 24 hours
+
+
+app.get("/urls.json", (req, res) => {
+  res.json(
+    (urlDatabase = {
+      shortURL: longURL
+    })
+  );
 });
-
-app.get("/hello", (req, res) => {
-  res.send("<html><body>Hello <b>World</b></body></html>\n");
-});
-
-
-
+		
 */
