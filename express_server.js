@@ -5,6 +5,11 @@ const morgan = require("morgan");
 const bodyParser = require("body-parser");
 const cookieSession = require("cookie-session");
 const bcrypt = require("bcrypt");
+const {
+  getUserByEmail,
+  generateRandomString,
+  urlsForUser
+} = require("./helpers");
 
 app.use(morgan("dev"));
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -35,63 +40,46 @@ const users = {
   }
 };
 
-//=============== FUNCTIONS ================//
-
-// GENERATE RANDOM STRING
-const generateRandomString = function() {
-  return Math.random()
-    .toString(30)
-    .substring(2, 8);
-};
-
-// FIND USER BY EMAIL ID
-function findUserEmail(email) {
-  for (let user in users) {
-    if (users[user].email === email) {
-      return users[user].id;
-    }
-  }
-  return "";
-}
-
-// FINDS URL LIST OF THE LOGGED IN USER
-function urlsForUser(id) {
-  let userURL = {};
-  for (let url in urlDatabase) {
-    if (urlDatabase[url].userID === id) {
-      userURL[url] = urlDatabase[url];
-    }
-  }
-  return userURL;
-}
-
 //=============== GET ================//
+
+// RENDERS URLS PAGE IF USER IS LOGGED IN ELSE LOGIN PAGE
+app.get("/", (req, res) => {
+  const loggedInUser = users[req.session.userID];
+  if (!loggedInUser) {
+    res.redirect("/login");
+  } else {
+    const tempVars = {
+      user: loggedInUser
+    };
+    res.render("urls_new", tempVars);
+  }
+});
 
 // RENDERS HOME PAGE WITH SHORT-LONG URLS
 app.get("/urls", (req, res) => {
   const userID = req.session.userID;
-  let templateVars = {
-    urls: urlsForUser(userID),
+  let tempVars = {
+    urls: urlsForUser(userID, urlDatabase),
     user_id: userID,
     user: users[userID]
   };
-  res.render("urls_index", templateVars);
+  res.render("urls_index", tempVars);
 });
 
 // RENDERS REGISTRATION PAGE FOR USER
 app.get("/register", (req, res) => {
-  const templateVars = {
+  const tempVars = {
     user: null
   };
-  res.render("urls_registration", templateVars);
+  res.render("urls_registration", tempVars);
 });
 
 // RENDERS LOGIN PAGE FOR USER
 app.get("/login", (req, res) => {
-  const templateVars = {
+  const tempVars = {
     user: null
   };
-  res.render("urls_login", templateVars);
+  res.render("urls_login", tempVars);
 });
 
 // RENDERS NEW_URL PAGE FOR USER TO CONVERT FROM LONG URL TO SHORT
@@ -100,10 +88,10 @@ app.get("/urls/new", (req, res) => {
   if (!loggedInUser) {
     res.redirect("/login");
   } else {
-    const templateVars = {
+    const tempVars = {
       user: loggedInUser
     };
-    res.render("urls_new", templateVars);
+    res.render("urls_new", tempVars);
   }
 });
 
@@ -114,13 +102,13 @@ app.get("/urls/:shortURL", (req, res) => {
     longURL: urlDatabase[req.params.shortURL],
     user: users[req.session.userID]
   };
-  console.log(tempVars);
   res.render("urls_show", tempVars);
 });
 
 // REDIRECTS TO THE ACTUAL PAGE IN THE LINK AND DISPLAYS THE SHORTURL (instead of longURL)
 app.get("/u/:shortURL", (req, res) => {
-  const longURL = urlDatabase[req.params.shortURL];
+  const longURL = urlDatabase[req.params.shortURL].longURL;
+  console.log(longURL);
   res.redirect(longURL);
 });
 
@@ -154,11 +142,6 @@ app.post("/urls/:shortURL/delete", (req, res) => {
 });
 
 // EDITS THE CONVERTED URLS FROM THE USER'S URL LIST
-app.get("/u/:shortURL", (req, res) => {
-  const longURL = urlDatabase[req.params.shortURL].longURL;
-  res.redirect(longURL);
-});
-
 app.post("/urls/:shortURL", (req, res) => {
   let userLoggedIn = req.session.userID;
   let usersURL = urlDatabase[req.params.shortURL].userID;
@@ -177,7 +160,6 @@ app.post("/register", function(req, res) {
   const email = req.body.email;
   const password = req.body.password;
   const hashedPassword = bcrypt.hashSync(password, 10);
-  console.log(hashedPassword);
   for (let userID in users) {
     if (email === users[userID]["email"]) {
       res.status(400).send("Email-id already exist");
@@ -220,11 +202,11 @@ app.post("/login", function(req, res) {
 
 // LOGOUT PAGE FOR USER -- CLEARS COOKIES (displays logout message -- displays login & register option)
 app.post("/logout", function(req, res) {
-  let templateVars = {
+  let tempVars = {
     user: null
   };
   req.session.userID = null;
-  res.render("urls_logout", templateVars);
+  res.render("urls_logout", tempVars);
 });
 
 //===========================================//
@@ -233,19 +215,3 @@ app.post("/logout", function(req, res) {
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}!`);
 });
-
-//=============== WASTE CODE =================//
-/*
-Cookie Options
-maxAge: 24 * 60 * 60 * 1000 // 24 hours
-
-
-app.get("/urls.json", (req, res) => {
-  res.json(
-    (urlDatabase = {
-      shortURL: longURL
-    })
-  );
-});
-		
-*/
