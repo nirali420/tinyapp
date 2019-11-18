@@ -176,6 +176,8 @@ app.post("/urls/:shortURL", (req, res) => {
 app.post("/register", function(req, res) {
   const email = req.body.email;
   const password = req.body.password;
+  const hashedPassword = bcrypt.hashSync(password, 10);
+  console.log(hashedPassword);
   for (let userID in users) {
     if (email === users[userID]["email"]) {
       res.status(400).send("Email-id already exist");
@@ -185,7 +187,7 @@ app.post("/register", function(req, res) {
   users[userRandomID] = {
     id: userRandomID,
     email: email,
-    password: password
+    password: hashedPassword
   };
   req.session.userID = userRandomID;
   res.redirect("/urls");
@@ -195,12 +197,14 @@ app.post("/register", function(req, res) {
 app.post("/login", function(req, res) {
   const email = req.body.email;
   const password = req.body.password;
+
   let userRandomID = "";
   let validUser = false;
+
   for (let userID in users) {
     if (
       email === users[userID]["email"] &&
-      password === users[userID]["password"]
+      bcrypt.compareSync(password, users[userID]["password"])
     ) {
       userRandomID = userID;
       validUser = true;
