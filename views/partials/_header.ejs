@@ -21,9 +21,14 @@
     <% if(user){ %>
 
     <form class="form-inline" action="/logout" method="POST">
-      <p><%= user['email'] %></p>
-      <!-- <p style="width: 300px; margin: 1em">Logged in as: TinyApp User</p> -->
-      <button type="submit" class="btn btn-secondary">Logout</button>
+      <p>Logged in as: <%= user['email'] %></p>
+      <button
+        type="submit"
+        class="btn btn-secondary"
+        style="width: 100px; margin: 1em"
+      >
+        Logout
+      </button>
     </form>
     <% } else{ %>
     <form class="form-inline" action="/login" method="GET">

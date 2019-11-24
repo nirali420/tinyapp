@@ -114,47 +114,6 @@ app.get("/u/:shortURL", (req, res) => {
 
 //=============== POST =================//
 
-// CONVERTS LONG URL TO SHORT for logged-in user else redirects to login
-app.post("/urls", (req, res) => {
-  const userID = req.session.userID;
-  const user = users[userID];
-  if (!user) {
-    res.redirect("/login");
-  } else {
-    longURL = req.body.longURL;
-    shortURL = generateRandomString(longURL);
-    urlDatabase[shortURL] = { longURL: longURL, userID: userID };
-    res.redirect("/urls");
-  }
-});
-
-// DELETES THE CONVERTED URLS FROM THE USER'S URL LIST
-app.post("/urls/:shortURL/delete", (req, res) => {
-  let userLoggedIn = req.session.userID;
-  let usersURL = urlDatabase[req.params.shortURL].userID;
-  if (userLoggedIn === usersURL) {
-    let deletingURL = req.params.shortURL;
-    delete urlDatabase[deletingURL];
-    res.redirect("/urls");
-  } else {
-    res.send("Sorry, you are not a user.");
-  }
-});
-
-// EDITS THE CONVERTED URLS FROM THE USER'S URL LIST
-app.post("/urls/:shortURL", (req, res) => {
-  let userLoggedIn = req.session.userID;
-  let usersURL = urlDatabase[req.params.shortURL].userID;
-  if (userLoggedIn === usersURL) {
-    let newURL = req.body.newlongURL;
-    let shortURL = req.params.shortURL;
-    urlDatabase[shortURL].longURL = newURL;
-    res.redirect("/urls");
-  } else {
-    res.send("Sorry, you are not a user");
-  }
-});
-
 // REGISTER'S NEW USER -- ADD COOKIES -- REDIRECTS TO URL PAGE (upon submit -- checks if user already exist -- if user has input the both the fields -- else throw error)
 app.post("/register", function(req, res) {
   const email = req.body.email;
@@ -207,6 +166,47 @@ app.post("/logout", function(req, res) {
   };
   req.session.userID = null;
   res.render("urls_logout", tempVars);
+});
+
+// CONVERTS LONG URL TO SHORT for logged-in user else redirects to login
+app.post("/urls", (req, res) => {
+  const userID = req.session.userID;
+  const user = users[userID];
+  if (!user) {
+    res.redirect("/login");
+  } else {
+    longURL = req.body.longURL;
+    shortURL = generateRandomString(longURL);
+    urlDatabase[shortURL] = { longURL: longURL, userID: userID };
+    res.redirect("/urls");
+  }
+});
+
+// DELETES THE CONVERTED URLS FROM THE USER'S URL LIST
+app.post("/urls/:shortURL/delete", (req, res) => {
+  let userLoggedIn = req.session.userID;
+  let usersURL = urlDatabase[req.params.shortURL].userID;
+  if (userLoggedIn === usersURL) {
+    let deletingURL = req.params.shortURL;
+    delete urlDatabase[deletingURL];
+    res.redirect("/urls");
+  } else {
+    res.send("Sorry, you are not a user.");
+  }
+});
+
+// EDITS THE CONVERTED URLS FROM THE USER'S URL LIST
+app.post("/urls/:shortURL", (req, res) => {
+  let userLoggedIn = req.session.userID;
+  let usersURL = urlDatabase[req.params.shortURL].userID;
+  if (userLoggedIn === usersURL) {
+    let newURL = req.body.newlongURL;
+    let shortURL = req.params.shortURL;
+    urlDatabase[shortURL].longURL = newURL;
+    res.redirect("/urls");
+  } else {
+    res.send("Sorry, you are not a user");
+  }
 });
 
 //===========================================//
