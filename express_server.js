@@ -97,12 +97,16 @@ app.get("/urls/new", (req, res) => {
 
 // RENDERS EDIT URL PAGE (urls_show) FOR USER TO EDIT
 app.get("/urls/:shortURL", (req, res) => {
-  const tempVars = {
-    shortURL: req.params.shortURL,
-    longURL: urlDatabase[req.params.shortURL],
-    user: users[req.session.userID]
-  };
-  res.render("urls_show", tempVars);
+  let userLoggedIn = req.session.userID;
+  let usersURL = urlDatabase[req.params.shortURL].userID;
+  if (userLoggedIn === usersURL) {
+    const tempVars = {
+      shortURL: req.params.shortURL,
+      longURL: urlDatabase[req.params.shortURL],
+      user: users[req.session.userID]
+    };
+    res.render("urls_show", tempVars);
+  }
 });
 
 // REDIRECTS TO THE ACTUAL PAGE IN THE LINK AND DISPLAYS THE SHORTURL (instead of longURL)
@@ -196,11 +200,11 @@ app.post("/urls/:shortURL/delete", (req, res) => {
 });
 
 // EDITS THE CONVERTED URLS FROM THE USER'S URL LIST
-app.post("/urls/:shortURL", (req, res) => {
+app.post("/urls/:shortURL/edit", (req, res) => {
   let userLoggedIn = req.session.userID;
   let usersURL = urlDatabase[req.params.shortURL].userID;
   if (userLoggedIn === usersURL) {
-    let newURL = req.body.newlongURL;
+    let newURL = req.body.longURL;
     let shortURL = req.params.shortURL;
     urlDatabase[shortURL].longURL = newURL;
     res.redirect("/urls");
